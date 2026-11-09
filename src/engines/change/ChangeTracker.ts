@@ -59,6 +59,42 @@ export class ChangeTracker {
   }
 
   /**
+   * Generate a structured JSON diff object categorised by added, updated, and deleted keys.
+   */
+  jsonDiff(
+    before: unknown,
+    after: unknown,
+    options?: ComparisonOptions,
+  ) {
+    const combinedIgnored = [
+      ...this.ignoredProperties,
+      ...(options?.ignoredProperties ?? []),
+    ];
+    return this.comparator.jsonDiff(before, after, {
+      ...options,
+      ignoredProperties: combinedIgnored,
+    });
+  }
+
+  /**
+   * Generate a formatted JSON diff string between two states.
+   */
+  generateDiff(
+    before: unknown,
+    after: unknown,
+    options?: ComparisonOptions & { pretty?: boolean },
+  ): string {
+    const combinedIgnored = [
+      ...this.ignoredProperties,
+      ...(options?.ignoredProperties ?? []),
+    ];
+    return this.comparator.generateDiff(before, after, {
+      ...options,
+      ignoredProperties: combinedIgnored,
+    });
+  }
+
+  /**
    * Save a snapshot of an entity's current state.
    */
   snapshot(entity: string, data: unknown): SnapshotEntry {

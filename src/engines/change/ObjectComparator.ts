@@ -37,6 +37,48 @@ export class ObjectComparator {
     return diffs;
   }
 
+  /**
+   * Generate a structured JSON diff object categorised by added, updated, and deleted keys.
+   */
+  jsonDiff(
+    before: unknown,
+    after: unknown,
+    options?: ComparisonOptions,
+  ): {
+    added: Record<string, unknown>;
+    updated: Record<string, { before: unknown; after: unknown }>;
+    deleted: Record<string, unknown>;
+  } {
+    const diffs = this.compare(before, after, options);
+    const added: Record<string, unknown> = {};
+    const updated: Record<string, { before: unknown; after: unknown }> = {};
+    const deleted: Record<string, unknown> = {};
+
+    for (const d of diffs) {
+      if (d.changeType === 'added') {
+        added[d.path] = d.after;
+      } else if (d.changeType === 'updated') {
+        updated[d.path] = { before: d.before, after: d.after };
+      } else if (d.changeType === 'deleted') {
+        deleted[d.path] = d.before;
+      }
+    }
+
+    return { added, updated, deleted };
+  }
+
+  /**
+   * Generate a formatted JSON diff string.
+   */
+  generateDiff(
+    before: unknown,
+    after: unknown,
+    options?: ComparisonOptions & { pretty?: boolean },
+  ): string {
+    const diff = this.jsonDiff(before, after, options);
+    return JSON.stringify(diff, null, options?.pretty !== false ? 2 : undefined);
+  }
+
   private walkDiff(
     before: unknown,
     after: unknown,
