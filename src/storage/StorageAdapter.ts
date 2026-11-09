@@ -39,3 +39,4 @@ export function validateStorageAdapter(adapter: unknown): string[] {
 
   return missing;
 }
+
