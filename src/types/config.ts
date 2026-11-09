@@ -43,6 +43,21 @@ export interface RedactionConfig {
 
   /** Replacement string injected in place of redacted values. */
   readonly replacement: string;
+
+  /** Whether to partially mask email addresses (e.g. j***@example.com). */
+  readonly maskEmails?: boolean;
+
+  /** Whether to partially mask phone numbers (e.g. ***-***-1234). */
+  readonly maskPhones?: boolean;
+
+  /** Whether to partially mask credit card numbers (e.g. ****-****-****-1234). */
+  readonly maskCreditCards?: boolean;
+
+  /** Maximum byte size allowed for an event's data payload (excess is truncated). */
+  readonly maxPayloadSize?: number;
+
+  /** List of property names that should be stripped completely from event payloads. */
+  readonly ignoredProperties?: string[];
 }
 
 /** Bounds and eviction policy for the in-memory event queue. */
@@ -51,12 +66,49 @@ export interface QueueConfig {
   readonly maxSize: number;
 
   /**
-   * Which end of the queue is dropped when {@link maxSize} is reached.
+   * Which policy applies when {@link maxSize} is reached.
    *
    * - `'oldest'` – discard the head (FIFO eviction).
-   * - `'newest'` – reject incoming events.
+   * - `'newest'` – drop incoming events silently or with warning.
+   * - `'reject'` – throw an error when attempting to enqueue.
    */
-  readonly dropPolicy: 'oldest' | 'newest';
+  readonly dropPolicy: 'oldest' | 'newest' | 'reject';
+
+  /** Number of retry attempts when flushing to storage fails. */
+  readonly maxRetries?: number;
+
+  /** Base delay in milliseconds for exponential backoff retries. */
+  readonly retryBaseDelayMs?: number;
+
+  /** Maximum delay in milliseconds for exponential backoff retries. */
+  readonly retryMaxDelayMs?: number;
+}
+
+/** Configuration for sliding-window event deduplication. */
+export interface DeduplicationConfig {
+  /** Master toggle for deduplication. */
+  readonly enabled: boolean;
+
+  /** Time window in milliseconds during which duplicate events are dropped. */
+  readonly ttlMs?: number;
+
+  /** Maximum number of fingerprints to keep in memory cache. */
+  readonly maxSize?: number;
+}
+
+/** Configuration for storage data retention and auto-cleanup. */
+export interface RetentionConfig {
+  /** Master toggle for automatic retention cleanup. */
+  readonly enabled: boolean;
+
+  /** Maximum age of events in milliseconds before they are purged. */
+  readonly maxAgeMs?: number;
+
+  /** Maximum number of total events to retain in storage. */
+  readonly maxEvents?: number;
+
+  /** Interval in milliseconds between background cleanup sweeps. */
+  readonly cleanupIntervalMs?: number;
 }
 
 /**
@@ -96,11 +148,20 @@ export interface TrackerConfig {
   /** PII / sensitive-data redaction settings. */
   readonly redaction?: RedactionConfig;
 
-  /** In-memory queue bounds. */
+  /** In-memory queue bounds and retry settings. */
   readonly queue?: QueueConfig;
 
   /** Probabilistic sampling settings. */
   readonly sampling?: SamplingConfig;
+
+  /** Event deduplication settings. */
+  readonly deduplication?: DeduplicationConfig;
+
+  /** Storage data retention settings. */
+  readonly retention?: RetentionConfig;
+
+  /** Timeout in milliseconds for graceful stop / shutdown. */
+  readonly stopTimeoutMs?: number;
 
   /** Arbitrary metadata attached to every outgoing event. */
   readonly metadata?: Record<string, unknown>;

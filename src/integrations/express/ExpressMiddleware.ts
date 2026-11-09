@@ -1,5 +1,11 @@
 import type { UniversalTracker } from '../../engines/universal/UniversalTracker.js';
 import { generateCorrelationId } from '../../utils/generateId.js';
+import {
+  parseTraceparent,
+  formatTraceparent,
+  generateTraceId,
+  generateSpanId,
+} from '../../core/CorrelationManager.js';
 
 export interface RequestLike {
   method?: string;
@@ -30,6 +36,7 @@ export interface ExpressMiddlewareOptions {
   readonly excludeRoutes?: ReadonlyArray<string | RegExp>;
   readonly captureHeaders?: boolean;
   readonly redactHeaders?: ReadonlyArray<string>;
+  readonly propagateTraceparent?: boolean;
 }
 
 const DEFAULT_SENSITIVE_HEADERS = new Set([
@@ -41,7 +48,8 @@ const DEFAULT_SENSITIVE_HEADERS = new Set([
 ]);
 
 /**
- * Express HTTP request tracking middleware.
+ * Express HTTP request tracking middleware with W3C traceparent context propagation
+ * and AsyncLocalStorage boundary isolation.
  */
 export function trackflowMiddleware(
   tracker: UniversalTracker,
@@ -52,6 +60,7 @@ export function trackflowMiddleware(
   const recordActivity = options?.recordActivity ?? true;
   const excludeRoutes = options?.excludeRoutes ?? [];
   const captureHeaders = options?.captureHeaders ?? false;
+  const propagateTraceparent = options?.propagateTraceparent ?? true;
   const sensitiveHeaders = new Set([
     ...DEFAULT_SENSITIVE_HEADERS,
     ...(options?.redactHeaders?.map((h) => h.toLowerCase()) ?? []),
@@ -80,6 +89,19 @@ export function trackflowMiddleware(
       res.setHeader(headerName, correlationId);
     }
 
+    // W3C traceparent resolution
+    const incomingTraceparent =
+      (req.headers?.traceparent as string) || (req.headers?.['trace-parent'] as string);
+    const parsedTrace = incomingTraceparent ? parseTraceparent(incomingTraceparent) : null;
+
+    const traceId = parsedTrace ? parsedTrace.traceId : generateTraceId();
+    const parentId = parsedTrace ? parsedTrace.parentId : undefined;
+    const spanId = generateSpanId();
+
+    if (propagateTraceparent && res.setHeader) {
+      res.setHeader('traceparent', formatTraceparent(traceId, spanId));
+    }
+
     const startTime = Date.now();
     const method = req.method || 'GET';
     const operation = `${method} ${routePath}`;
@@ -97,41 +119,57 @@ export function trackflowMiddleware(
       }
     }
 
-    if (recordActivity) {
-      tracker.activities.track('http.request', {
+    tracker.runWithContext(
+      {
+        correlationId,
+        traceId,
+        spanId,
+        parentId,
         userId,
-        category: 'http',
-        metadata: {
-          method,
-          path: routePath,
-          correlationId,
-          ...(sanitizedHeaders ? { headers: sanitizedHeaders } : {}),
-        },
-      });
-    }
-
-    if (res.on) {
-      res.on('finish', () => {
-        const duration = Date.now() - startTime;
-        const statusCode = res.statusCode ?? 200;
-
-        if (recordPerformance) {
-          tracker.performance.record(
-            operation,
-            duration,
-            { statusCode },
-            {
+      },
+      () => {
+        if (recordActivity) {
+          tracker.activities.track('http.request', {
+            userId,
+            category: 'http',
+            metadata: {
               method,
-              statusCode,
+              path: routePath,
               correlationId,
-              userId,
+              traceId,
+              spanId,
+              parentId,
+              ...(sanitizedHeaders ? { headers: sanitizedHeaders } : {}),
             },
-          );
+          });
         }
-      });
-    }
 
-    next();
+        if (res.on) {
+          res.on('finish', () => {
+            const duration = Date.now() - startTime;
+            const statusCode = res.statusCode ?? 200;
+
+            if (recordPerformance) {
+              tracker.performance.record(
+                operation,
+                duration,
+                { statusCode },
+                {
+                  method,
+                  statusCode,
+                  correlationId,
+                  traceId,
+                  spanId,
+                  userId,
+                },
+              );
+            }
+          });
+        }
+
+        next();
+      },
+    );
   };
 }
 

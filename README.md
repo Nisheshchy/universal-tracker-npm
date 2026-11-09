@@ -24,9 +24,11 @@ TrackFlow is an actual npm package built with TypeScript, offering dual ESM and 
 - **👤 Activity Tracker** — User authentication events (`login`, `logout`, `register`), custom business actions, UI interactions, session tracking with timeouts, user traits, and activity timelines.
 - **⏱️ Performance Tracker** — Async/sync function execution measurement, manual timers, threshold management, statistical summaries (min, max, avg, p95, p99), and Node.js CPU/memory/event-loop monitoring.
 - **🚨 Error Tracker** — Runtime error capture, stack trace parsing, deterministic FNV-1a error fingerprinting, duplicate deduplication and grouping, without swallowing errors.
-- **🌐 Universal Tracker** — Unified event schema, central processing pipeline (validation → filtering → redaction → sampling → storage), correlation IDs, bounded queues, and auto-flush timers.
-- **🔒 Privacy & Security by Design** — Configurable field and regex PII redaction, automatic suppression of passwords, secrets, and auth tokens, with zero automatic harvesting of private inputs.
-- **🔌 Pluggable Architecture** — Memory and File storage adapters included out-of-the-box, with clean interfaces for MongoDB, Postgres, SQLite, and custom plugins.
+- **🌐 Universal Tracker** — Unified event schema, central processing pipeline (validation → filtering → deduplication → redaction → payload limits → sampling → storage), correlation IDs, and bounded queues.
+- **🔗 Distributed Tracing & Correlation** — W3C `traceparent` context propagation, Node.js `AsyncLocalStorage` async context preservation, parent-child span trees, and timeline reconstruction (`getTimeline`).
+- **🗃️ Offline Buffering & Resilient Delivery** — Automatic retry with exponential backoff and jitter, offline buffer fallback on storage outage, and poison-pill dead-letter protection.
+- **🔒 Privacy, Redaction & Security Engine** — Pattern-based email, phone, and credit card masking, ignored properties stripping, payload size DOS limits, circular-safe serialization (`safeSerialize`), and data retention auto-cleanup.
+- **🔌 Advanced Plugin Architecture** — Plugin dependencies, error-isolated lifecycle hooks (`beforeProcess`, `afterProcess`, `beforeFlush`, `onError`), custom background collectors, and storage adapter injection.
 - **🚀 Dual Runtime Integrations** — Specialized entry points for Node.js (`trackflow/node`), browsers (`trackflow/browser`), and Express.js (`trackflow/express`).
 
 ---

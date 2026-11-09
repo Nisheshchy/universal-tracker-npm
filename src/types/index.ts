@@ -8,6 +8,7 @@
 export type {
   TrackerEventType,
   TrackerEvent,
+  EventPriority,
   ChangeType,
   ChangeEventData,
   ActivityEventData,
@@ -23,6 +24,8 @@ export type {
   RedactionConfig,
   QueueConfig,
   SamplingConfig,
+  DeduplicationConfig,
+  RetentionConfig,
   TrackerConfig,
 } from './config';
 

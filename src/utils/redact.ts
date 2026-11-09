@@ -3,9 +3,11 @@
  *
  * Recursively walks an object graph and replaces values whose keys match
  * known-sensitive field names or caller-supplied regex patterns.
+ * Also supports pattern-based masking for emails, phone numbers, and
+ * credit cards, as well as property stripping.
  */
 
-import type { RedactionConfig } from '../types/config';
+import type { RedactionConfig } from '../types/config.js';
 
 /**
  * Default field names treated as sensitive regardless of user config.
@@ -15,17 +17,53 @@ import type { RedactionConfig } from '../types/config';
  */
 const DEFAULT_SENSITIVE_FIELDS: ReadonlySet<string> = new Set([
   'password',
+  'passwd',
   'secret',
   'token',
   'apikey',
+  'api_key',
   'authorization',
   'cookie',
   'ssn',
   'creditcard',
+  'credit_card',
+  'cvv',
+  'cvc',
+  'privatekey',
+  'private_key',
+  'pin',
+  'jwt',
+  'bearer',
 ]);
 
 /** Safety limit to prevent infinite recursion on cyclic structures. */
 const MAX_REDACTION_DEPTH = 50;
+
+/** Regular expressions for pattern-based masking. */
+const EMAIL_REGEX = /\b([a-zA-Z0-9_.+-])[a-zA-Z0-9_.+-]*@([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b/g;
+const PHONE_REGEX = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?(\d{4})\b/g;
+const CC_REGEX = /\b(?:\d{4}[-\s]?){3}(\d{4})\b/g;
+
+/**
+ * Mask an email address to protect privacy (e.g. `j***@example.com`).
+ */
+export function maskEmail(email: string): string {
+  return email.replace(EMAIL_REGEX, '$1***@$2');
+}
+
+/**
+ * Mask a phone number (e.g. `***-***-1234`).
+ */
+export function maskPhone(phone: string): string {
+  return phone.replace(PHONE_REGEX, '***-***-$1');
+}
+
+/**
+ * Mask a credit card number (e.g. `****-****-****-1234`).
+ */
+export function maskCreditCard(cc: string): string {
+  return cc.replace(CC_REGEX, '****-****-****-$1');
+}
 
 /**
  * Return `true` when `fieldName` (lowercased) matches a sensitive field or
@@ -43,7 +81,6 @@ function isSensitiveField(
   }
 
   for (const pattern of patterns) {
-    // Reset lastIndex for sticky / global regexps.
     pattern.lastIndex = 0;
     if (pattern.test(fieldName)) {
       return true;
@@ -54,6 +91,26 @@ function isSensitiveField(
 }
 
 /**
+ * Mask string values according to configured mask flags.
+ */
+function maskStringValue(
+  value: string,
+  config: RedactionConfig,
+): string {
+  let result = value;
+  if (config.maskEmails) {
+    result = maskEmail(result);
+  }
+  if (config.maskPhones) {
+    result = maskPhone(result);
+  }
+  if (config.maskCreditCards) {
+    result = maskCreditCard(result);
+  }
+  return result;
+}
+
+/**
  * Internal recursive redaction worker.
  */
 function redactObject(
@@ -61,15 +118,33 @@ function redactObject(
   sensitiveFields: ReadonlySet<string>,
   patterns: ReadonlyArray<RegExp>,
   replacement: string,
+  config: RedactionConfig,
   depth: number,
+  seen: WeakSet<object>,
 ): Record<string, unknown> {
   if (depth >= MAX_REDACTION_DEPTH) {
     return data;
   }
 
+  if (seen.has(data)) {
+    return { _ref: '[Circular]' };
+  }
+  seen.add(data);
+
+  const ignoredSet = config.ignoredProperties
+    ? new Set(config.ignoredProperties.map((p) => p.toLowerCase()))
+    : null;
+
   const result: Record<string, unknown> = {};
 
   for (const key of Object.keys(data)) {
+    const lowerKey = key.toLowerCase();
+
+    // Strip ignored properties entirely
+    if (ignoredSet && ignoredSet.has(lowerKey)) {
+      continue;
+    }
+
     const value = data[key];
 
     if (isSensitiveField(key, sensitiveFields, patterns)) {
@@ -77,15 +152,25 @@ function redactObject(
       continue;
     }
 
+    if (typeof value === 'string') {
+      result[key] = maskStringValue(value, config);
+      continue;
+    }
+
     if (Array.isArray(value)) {
       result[key] = value.map((item) => {
+        if (typeof item === 'string') {
+          return maskStringValue(item, config);
+        }
         if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
           return redactObject(
             item as Record<string, unknown>,
             sensitiveFields,
             patterns,
             replacement,
+            config,
             depth + 1,
+            seen,
           );
         }
         return item;
@@ -93,13 +178,20 @@ function redactObject(
       continue;
     }
 
-    if (value !== null && typeof value === 'object' && !(value instanceof Date) && !(value instanceof RegExp)) {
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      !(value instanceof Date) &&
+      !(value instanceof RegExp)
+    ) {
       result[key] = redactObject(
         value as Record<string, unknown>,
         sensitiveFields,
         patterns,
         replacement,
+        config,
         depth + 1,
+        seen,
       );
       continue;
     }
@@ -135,11 +227,15 @@ export function redactSensitiveData(
     sensitiveFields.add(field.toLowerCase());
   }
 
+  const seen = new WeakSet<object>();
+
   return redactObject(
     data,
     sensitiveFields,
     config.patterns,
     config.replacement,
+    config,
     0,
+    seen,
   );
 }

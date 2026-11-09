@@ -4,14 +4,27 @@ export {
   createTracker,
   type TrackerStatus,
   type ExportOptions,
+  type TimelineSpanNode,
+  type EventTimeline,
+  type TrackerMetrics,
 } from './engines/universal/UniversalTracker.js';
 
 // Core Subsystems
 export { EventBus, BUILT_IN_EVENTS, type BuiltInEvent, type EventHandler } from './core/EventBus.js';
-export { EventProcessor } from './core/EventProcessor.js';
-export { EventQueue } from './core/EventQueue.js';
+export { EventProcessor, type ProcessorMetrics } from './core/EventProcessor.js';
+export { EventQueue, QueueOverflowError } from './core/EventQueue.js';
+export { OfflineBuffer, type OfflineBufferOptions } from './core/OfflineBuffer.js';
+export { RetentionManager } from './core/RetentionManager.js';
 export { LifecycleManager, type LifecycleState } from './core/LifecycleManager.js';
-export { CorrelationManager, type CorrelationContext } from './core/CorrelationManager.js';
+export {
+  CorrelationManager,
+  type CorrelationContext,
+  type TraceparentInfo,
+  parseTraceparent,
+  formatTraceparent,
+  generateTraceId,
+  generateSpanId,
+} from './core/CorrelationManager.js';
 export { Logger } from './core/Logger.js';
 export { createConfig, validateConfig } from './core/Config.js';
 
@@ -84,6 +97,7 @@ export {
 export type {
   TrackerEventType,
   TrackerEvent,
+  EventPriority,
   ChangeType,
   ChangeEventData,
   ActivityEventData,
@@ -96,6 +110,8 @@ export type {
   RedactionConfig,
   QueueConfig,
   SamplingConfig,
+  DeduplicationConfig,
+  RetentionConfig,
   TrackerConfig,
   StorageAdapter,
   StorageType,
@@ -105,6 +121,12 @@ export type {
 // Utilities
 export { generateId, generateCorrelationId } from './utils/generateId.js';
 export { deepClone, deepEqual } from './utils/deepClone.js';
-export { redactSensitiveData } from './utils/redact.js';
+export {
+  redactSensitiveData,
+  maskEmail,
+  maskPhone,
+  maskCreditCard,
+} from './utils/redact.js';
+export { safeSerialize, safeParse, type SafeSerializeOptions } from './utils/safeSerialize.js';
 export { isoTimestamp, hrtime, elapsed } from './utils/time.js';
 

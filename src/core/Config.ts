@@ -118,8 +118,37 @@ export function validateConfig(config: TrackerConfig): string[] {
   // queue.dropPolicy
   if (config.queue) {
     const dropPolicy = config.queue.dropPolicy;
-    if (dropPolicy !== undefined && dropPolicy !== 'oldest' && dropPolicy !== 'newest') {
+    if (
+      dropPolicy !== undefined &&
+      dropPolicy !== 'oldest' &&
+      dropPolicy !== 'newest' &&
+      dropPolicy !== 'reject'
+    ) {
       errors.push('queue.dropPolicy must be "oldest" or "newest"');
+    }
+  }
+
+  // stopTimeoutMs
+  if (config.stopTimeoutMs !== undefined && config.stopTimeoutMs !== null) {
+    if (typeof config.stopTimeoutMs !== 'number' || config.stopTimeoutMs <= 0) {
+      errors.push('stopTimeoutMs must be a positive number');
+    }
+  }
+
+  // deduplication
+  if (config.deduplication?.enabled) {
+    if (config.deduplication.ttlMs !== undefined && (typeof config.deduplication.ttlMs !== 'number' || config.deduplication.ttlMs <= 0)) {
+      errors.push('deduplication.ttlMs must be a positive number');
+    }
+    if (config.deduplication.maxSize !== undefined && (typeof config.deduplication.maxSize !== 'number' || config.deduplication.maxSize <= 0)) {
+      errors.push('deduplication.maxSize must be a positive number');
+    }
+  }
+
+  // retention
+  if (config.retention?.enabled) {
+    if (config.retention.maxAgeMs !== undefined && (typeof config.retention.maxAgeMs !== 'number' || config.retention.maxAgeMs <= 0)) {
+      errors.push('retention.maxAgeMs must be a positive number');
     }
   }
 

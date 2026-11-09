@@ -5,14 +5,24 @@ import type {
 } from '../types/index.js';
 import { Logger } from './Logger.js';
 import { EventBus, BUILT_IN_EVENTS } from './EventBus.js';
+import { redactSensitiveData } from '../utils/redact.js';
+import { safeSerialize } from '../utils/safeSerialize.js';
+
+export interface ProcessorMetrics {
+  readonly processed: number;
+  readonly filtered: number;
+  readonly redacted: number;
+  readonly sampledOut: number;
+  readonly deduplicated: number;
+  readonly errors: number;
+}
 
 /**
  * Processes events through the TrackFlow pipeline:
  *
- *   validate → filter → redact → sample → store
+ *   validate → filter → deduplicate → redact → payload-limit → sample → custom-processors → store
  *
- * Each stage can short-circuit the pipeline. Successfully processed
- * events are emitted on the EventBus as `event:processed`.
+ * Emits `event:processed` on success and `event:error` on failure.
  */
 export class EventProcessor {
   private readonly config: TrackerConfig;
@@ -20,6 +30,17 @@ export class EventProcessor {
   private readonly logger: Logger;
   private readonly eventBus: EventBus;
   private readonly customProcessors: Array<(event: TrackerEvent) => TrackerEvent | null> = [];
+
+  // Deduplication sliding cache
+  private readonly dedupCache = new Map<string, number>();
+
+  // Internal metrics
+  private processedCount = 0;
+  private filteredCount = 0;
+  private redactedCount = 0;
+  private sampledOutCount = 0;
+  private deduplicatedCount = 0;
+  private errorCount = 0;
 
   constructor(
     config: TrackerConfig,
@@ -41,8 +62,10 @@ export class EventProcessor {
   /** Run a single event through the full processing pipeline. */
   async process(event: TrackerEvent): Promise<void> {
     try {
+      // 1. Validation
       const validationErrors = this.validateEvent(event);
       if (validationErrors.length > 0) {
+        this.errorCount++;
         this.logger.warn(
           `Event validation failed for '${event.id ?? 'unknown'}': ${validationErrors.join(', ')}`,
         );
@@ -54,23 +77,40 @@ export class EventProcessor {
         return;
       }
 
+      // 2. Subsystem filtering
       if (this.shouldFilter(event)) {
+        this.filteredCount++;
         this.logger.debug(`Event '${event.id}' filtered out by tracking config`);
         return;
       }
 
-      const redactedEvent = this.redactEvent(event);
-
-      if (!this.shouldSample(event)) {
-        this.logger.debug(`Event '${redactedEvent.id}' dropped by sampling`);
+      // 3. Deduplication
+      if (this.isDuplicate(event)) {
+        this.deduplicatedCount++;
+        this.logger.debug(`Event '${event.id}' dropped as duplicate`);
+        this.eventBus.emit('event:deduplicated', event);
         return;
       }
 
-      let currentEvent: TrackerEvent = redactedEvent;
+      // 4. Redaction
+      let currentEvent = this.redactEvent(event);
+
+      // 5. Maximum payload size enforcement
+      currentEvent = this.enforcePayloadLimit(currentEvent);
+
+      // 6. Sampling (critical & error events bypass sampling by default)
+      if (!this.shouldSample(currentEvent)) {
+        this.sampledOutCount++;
+        this.logger.debug(`Event '${currentEvent.id}' dropped by sampling`);
+        return;
+      }
+
+      // 7. Custom plugin processors
       for (const customProcessor of this.customProcessors) {
         try {
           const transformed = customProcessor(currentEvent);
           if (transformed === null) {
+            this.filteredCount++;
             this.logger.debug(`Event '${currentEvent.id}' dropped by custom plugin processor`);
             return;
           }
@@ -80,19 +120,24 @@ export class EventProcessor {
         }
       }
 
+      // 8. Storage persistence
       if (this.storage) {
         await this.storage.save(currentEvent);
         this.logger.debug(`Event '${currentEvent.id}' stored successfully`);
       }
 
+      this.processedCount++;
       this.eventBus.emit(BUILT_IN_EVENTS.EVENT_PROCESSED, currentEvent);
     } catch (err) {
+      this.errorCount++;
       this.logger.error(`Failed to process event '${event.id ?? 'unknown'}'`, err);
       this.eventBus.emit(BUILT_IN_EVENTS.EVENT_ERROR, {
         event,
         error: err,
         stage: 'processing',
       });
+      // Re-throw so caller (EventQueue) can retry or route to OfflineBuffer
+      throw err;
     }
   }
 
@@ -103,12 +148,20 @@ export class EventProcessor {
     }
   }
 
+  /** Return operational metrics for the processor. */
+  getMetrics(): ProcessorMetrics {
+    return {
+      processed: this.processedCount,
+      filtered: this.filteredCount,
+      redacted: this.redactedCount,
+      sampledOut: this.sampledOutCount,
+      deduplicated: this.deduplicatedCount,
+      errors: this.errorCount,
+    };
+  }
+
   // ── Private pipeline stages ─────────────────────────────────────
 
-  /**
-   * Validate that the event has all required fields.
-   * Returns an array of human-readable error strings (empty = valid).
-   */
   private validateEvent(event: TrackerEvent): string[] {
     const errors: string[] = [];
 
@@ -128,12 +181,6 @@ export class EventProcessor {
     return errors;
   }
 
-  /**
-   * Determine whether the event should be filtered out based on
-   * the tracking configuration's enabled event types.
-   *
-   * Returns `true` if the event should be **dropped**.
-   */
   private shouldFilter(event: TrackerEvent): boolean {
     const tracking = this.config.tracking;
     if (!tracking) return false;
@@ -146,96 +193,89 @@ export class EventProcessor {
     };
 
     const enabledFlag = typeFilterMap[event.type];
+    return enabledFlag === false;
+  }
 
-    // If we have an explicit flag for this type and it's disabled, filter it out
-    if (enabledFlag === false) {
+  private isDuplicate(event: TrackerEvent): boolean {
+    const dedup = this.config.deduplication;
+    if (!dedup || !dedup.enabled) return false;
+
+    const ttlMs = dedup.ttlMs ?? 5_000;
+    const maxSize = dedup.maxSize ?? 1_000;
+    const now = Date.now();
+
+    const signature = `${event.type}:${event.source ?? ''}:${safeSerialize(event.data)}`;
+    const lastSeen = this.dedupCache.get(signature);
+
+    if (lastSeen !== undefined && now - lastSeen < ttlMs) {
       return true;
     }
 
+    // Evict oldest entries if map exceeds bounded maxSize
+    if (this.dedupCache.size >= maxSize) {
+      const firstKey = this.dedupCache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.dedupCache.delete(firstKey);
+      }
+    }
+
+    this.dedupCache.set(signature, now);
     return false;
   }
 
-  /**
-   * Redact sensitive data from the event based on the redaction config.
-   * Returns a new event object with redacted fields (never mutates the original).
-   */
   private redactEvent(event: TrackerEvent): TrackerEvent {
     const redaction = this.config.redaction;
     if (!redaction || !redaction.enabled) {
       return event;
     }
 
-    const replacement = redaction.replacement ?? '[REDACTED]';
-    const fields = redaction.fields ?? [];
-    const patterns = redaction.patterns ?? [];
-
-    // Nothing to redact if no fields or patterns are configured
-    if (fields.length === 0 && patterns.length === 0) {
-      return event;
-    }
-
     let redactedData = event.data;
     if (redactedData !== null && typeof redactedData === 'object') {
-      redactedData = this.redactFields(
+      redactedData = redactSensitiveData(
         redactedData as Record<string, unknown>,
-        fields,
-        patterns,
-        replacement,
+        redaction,
       );
+      this.redactedCount++;
     }
 
     return { ...event, data: redactedData };
   }
 
-  /**
-   * Recursively redact matching field names from an object.
-   * Matches against both exact field names (case-insensitive) and regex patterns.
-   * Returns a new shallow copy at each level that contains a match.
-   */
-  private redactFields(
-    obj: Record<string, unknown>,
-    fields: readonly string[],
-    patterns: readonly RegExp[],
-    replacement: string,
-  ): Record<string, unknown> {
-    const result: Record<string, unknown> = { ...obj };
-    const lowerFields = fields.map((f) => f.toLowerCase());
-
-    for (const key of Object.keys(result)) {
-      const lowerKey = key.toLowerCase();
-      const shouldRedact =
-        lowerFields.includes(lowerKey) ||
-        patterns.some((p) => p.test(key));
-
-      if (shouldRedact) {
-        result[key] = replacement;
-      } else if (
-        result[key] !== null &&
-        typeof result[key] === 'object' &&
-        !Array.isArray(result[key])
-      ) {
-        result[key] = this.redactFields(
-          result[key] as Record<string, unknown>,
-          fields,
-          patterns,
-          replacement,
-        );
-      }
+  private enforcePayloadLimit(event: TrackerEvent): TrackerEvent {
+    const limit = this.config.redaction?.maxPayloadSize;
+    if (!limit || limit <= 0 || event.data === null || event.data === undefined) {
+      return event;
     }
 
-    return result;
+    const serialized = safeSerialize(event.data);
+    if (serialized.length > limit) {
+      this.logger.warn(
+        `Event '${event.id}' payload (${serialized.length} bytes) exceeded limit of ${limit} bytes. Truncating.`,
+      );
+      return {
+        ...event,
+        data: {
+          _truncated: true,
+          originalSize: serialized.length,
+          maxAllowed: limit,
+          preview: serialized.slice(0, Math.min(limit, 200)) + '...',
+          message: `Payload exceeded max size limit of ${limit} bytes.`,
+        },
+      };
+    }
+
+    return event;
   }
 
-  /**
-   * Apply the configured sampling rate.
-   * Checks both the global rate and per-event-type rules.
-   * Returns `true` if the event should be **kept**.
-   */
   private shouldSample(event: TrackerEvent): boolean {
+    // Preserve errors and critical events from being sampled out unless explicitly configured
+    if (event.priority === 'critical' || (event.type === 'error' && !this.config.sampling?.rules?.error)) {
+      return true;
+    }
+
     const sampling = this.config.sampling;
     if (!sampling) return true;
 
-    // Check per-event-type override first
     const typeRate = sampling.rules?.[event.type];
     const rate = typeRate ?? sampling.rate ?? 1.0;
 

@@ -14,6 +14,9 @@ export type TrackerEventType =
   | 'error'
   | 'system';
 
+/** Priority level for queue ordering and expedited processing. */
+export type EventPriority = 'low' | 'normal' | 'high' | 'critical';
+
 /**
  * The unified event envelope shared by every tracker event.
  *
@@ -45,8 +48,23 @@ export interface TrackerEvent {
   /** Optional correlation identifier for distributed tracing. */
   readonly correlationId?: string;
 
+  /** Distributed tracing trace identifier (e.g. W3C trace-id). */
+  readonly traceId?: string;
+
+  /** Distributed tracing span identifier (e.g. W3C parent-id / span-id). */
+  readonly spanId?: string;
+
+  /** Parent event or span identifier for hierarchical relationships. */
+  readonly parentId?: string;
+
+  /** Priority level for processing and dispatch. */
+  readonly priority?: EventPriority;
+
   /** Logical source of the event (e.g. module or service name). */
   readonly source?: string;
+
+  /** Optional metadata associated with the event envelope. */
+  readonly metadata?: Record<string, unknown>;
 
   /** Event-type-specific payload. */
   readonly data: unknown;
@@ -152,6 +170,18 @@ export interface EventFilter {
   /** Restrict to a specific user. */
   readonly userId?: string;
 
+  /** Restrict to a specific correlation identifier. */
+  readonly correlationId?: string;
+
+  /** Restrict to a specific distributed trace identifier. */
+  readonly traceId?: string;
+
+  /** Restrict to a parent span/event identifier. */
+  readonly parentId?: string;
+
+  /** Restrict to a specific priority level. */
+  readonly priority?: EventPriority;
+
   /** Inclusive lower bound (ISO 8601). */
   readonly startTime?: string;
 
@@ -175,4 +205,10 @@ export interface EventBatchConfig {
 
   /** Number of retry attempts when a flush fails. */
   readonly maxRetries: number;
+
+  /** Base delay in milliseconds for exponential backoff retries. */
+  readonly retryBaseDelayMs?: number;
+
+  /** Maximum delay in milliseconds for exponential backoff retries. */
+  readonly retryMaxDelayMs?: number;
 }
