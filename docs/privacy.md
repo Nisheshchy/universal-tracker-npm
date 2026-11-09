@@ -73,3 +73,4 @@ Large object dumps can exhaust application memory. When `maxPayloadSize` is conf
 ## Automatic Data Retention (`RetentionManager`)
 
 When `retention.enabled` is `true`, a background task runs periodically to enforce time-to-live (TTL) policies and prevent unbounded disk or memory growth.
+

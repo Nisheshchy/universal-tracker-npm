@@ -78,3 +78,4 @@ describe('Offline Event Buffering & Dead-Letter Recovery', () => {
     expect(buffer.getDeadLetters()).toBe(1);
   });
 });
+

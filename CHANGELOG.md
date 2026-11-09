@@ -42,6 +42,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Specialized Node.js entry point (`trackflow/node`) with system metrics collector (CPU, memory, event-loop delay).
   - Specialized Browser entry point (`trackflow/browser`) with navigation performance and interaction tracking.
   - Express middleware (`trackflow/express`) with HTTP latency, status code, and correlation tracing.
+- **Advanced Capabilities (Phase 4 & 5)**:
+  - W3C `traceparent` distributed trace context propagation and parsing.
+  - Asynchronous context propagation via Node.js `node:async_hooks` (`AsyncLocalStorage`) with graceful fallback.
+  - Hierarchical parent-child span tracking (`parentId`, `spanId`) and application timeline reconstruction (`getTimeline`).
+  - Priority-based queue scheduling (`critical`, `high`, `normal`, `low`) and `QueueOverflowError` reject policy.
+  - Resilient `OfflineBuffer` with automatic exponential backoff retries, FIFO draining, and poison-pill dead-letter protection.
+  - Advanced plugin lifecycle hooks (`beforeProcess`, `afterProcess`, `beforeFlush`, `onError`, `onEvent`), plugin dependency validation, and error isolation guarantees.
+  - Hardened privacy controls: pattern-based email, phone, and credit card masking, property stripping, payload size DOS limits (`maxPayloadSize`), and circular-safe serialization (`safeSerialize`).
+  - Storage data retention management (`RetentionManager`) with automated background TTL sweeps.
+  - Comprehensive operational metrics reporting (`getMetrics`) for queues, processors, offline buffers, and memory.
 - **Developer Tools**:
   - Dual ESM & CommonJS build output with complete `.d.ts` declaration files.
   - Vitest test suite with 100% passing unit and integration tests.

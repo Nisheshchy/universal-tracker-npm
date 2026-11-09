@@ -83,3 +83,4 @@ Typical performance on standard hardware (Node.js v20+):
 - **Queue & Batch Processing**: > 120,000 events/second (batch size 200).
 - **High-Volume Redaction Pipeline**: > 80,000 events/second with sensitive field redaction and email masking.
 - **Deep Object Comparison**: > 850 comparisons/second for 1,000-property nested objects.
+
