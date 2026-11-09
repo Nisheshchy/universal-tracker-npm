@@ -5,3 +5,4 @@ export interface EventCollector {
   collect(): Promise<void> | void;
   isRunning(): boolean;
 }
+

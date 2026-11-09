@@ -63,3 +63,4 @@ const userTimeline = tracker.activities.getTimeline('usr_99', { limit: 20 });
 // Export timeline as JSON string
 const jsonExport = tracker.activities.exportTimeline('usr_99');
 ```
+

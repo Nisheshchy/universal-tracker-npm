@@ -67,3 +67,4 @@ const customTracker = new ErrorTracker({
   filter: (parsed) => parsed.name !== 'AbortError',
 });
 ```
+

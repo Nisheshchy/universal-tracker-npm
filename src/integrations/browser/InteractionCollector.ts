@@ -107,3 +107,4 @@ export class InteractionCollector {
     this.tracker.logger.info('InteractionCollector uninstalled');
   }
 }
+

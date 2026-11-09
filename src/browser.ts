@@ -35,3 +35,4 @@ export function createBrowserTracker(options?: BrowserTrackerOptions): {
 
   return { tracker, browserCollector, interactionCollector };
 }
+

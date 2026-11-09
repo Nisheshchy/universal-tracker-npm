@@ -58,3 +58,4 @@ export class ErrorFingerprint {
     return (hash >>> 0).toString(16).padStart(8, '0');
   }
 }
+

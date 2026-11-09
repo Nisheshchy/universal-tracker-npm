@@ -171,3 +171,4 @@ export class ChangeTracker {
     this.historyManager.clear();
   }
 }
+

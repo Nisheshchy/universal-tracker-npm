@@ -46,3 +46,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Dual ESM & CommonJS build output with complete `.d.ts` declaration files.
   - Vitest test suite with 100% passing unit and integration tests.
   - Automated benchmark harness demonstrating 170k+ events/sec throughput.
+

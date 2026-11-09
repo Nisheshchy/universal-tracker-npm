@@ -62,3 +62,4 @@ const tracker = createTracker({
   debug: false,
 });
 ```
+

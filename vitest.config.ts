@@ -8,7 +8,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/**/index.ts', 'src/browser.ts', 'src/express.ts'],
+      exclude: [
+        'src/**/index.ts',
+        'src/types/**',
+        'src/collectors/EventCollector.ts',
+        'src/plugins/PluginInterface.ts',
+        'src/exporters/Exporter.ts',
+        'src/core/Tracker.ts',
+      ],
     },
     testTimeout: 10000,
   },

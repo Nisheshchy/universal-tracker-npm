@@ -48,3 +48,4 @@ Express middleware that traces HTTP requests, response latency, status codes, an
 
 ### `trackflowErrorMiddleware(tracker)` (`trackflow/express`)
 Express error middleware that captures unhandled route errors without swallowing them.
+

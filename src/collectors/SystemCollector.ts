@@ -150,3 +150,4 @@ export class SystemCollector implements EventCollector {
     this.tracker.eventBus.emit('event:created', event);
   }
 }
+

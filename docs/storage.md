@@ -72,3 +72,4 @@ Pass your custom adapter to `createTracker`:
 ```typescript
 const tracker = createTracker(config, new PostgresStorage());
 ```
+

@@ -231,3 +231,4 @@ export class ActivityTracker {
     this.userActivity.clear();
   }
 }
+

@@ -49,3 +49,4 @@ import { slackNotificationPlugin } from './slackPlugin';
 const tracker = createTracker();
 await tracker.use(slackNotificationPlugin);
 ```
+

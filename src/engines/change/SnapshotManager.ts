@@ -71,3 +71,4 @@ export class SnapshotManager {
     return this.snapshots.size;
   }
 }
+

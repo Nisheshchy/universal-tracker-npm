@@ -131,3 +131,4 @@ export class BrowserCollector {
     this.tracker.logger.info('BrowserCollector uninstalled');
   }
 }
+
