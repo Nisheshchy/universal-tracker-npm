@@ -56,7 +56,19 @@ export {
 } from './engines/error/index.js';
 
 // Storage & Exporters
-export { MemoryStorage, FileStorage, type FileStorageOptions } from './storage/index.js';
+export {
+  MemoryStorage,
+  FileStorage,
+  SqliteStorage,
+  PostgresStorage,
+  MongoStorage,
+  type FileStorageOptions,
+  type SqliteStorageOptions,
+  type SqliteDatabaseLike,
+  type PostgresStorageOptions,
+  type PostgresClientLike,
+  type MongoCollectionLike,
+} from './storage/index.js';
 export { JSONExporter, type JSONExporterOptions, type ExporterInterface } from './exporters/index.js';
 
 // Plugins
