@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TrackFlow Browser Example</title>
+</head>
+<body>
+  <h1>TrackFlow Browser Demo</h1>
+
+  <button id="btn-login" data-track="user.login_clicked">Log In</button>
+  <button id="btn-checkout" data-track="cart.checkout_clicked">Checkout</button>
+  <button id="btn-error">Trigger Error</button>
+
+  <form id="contact-form" action="/contact">
+    <input type="text" name="name" placeholder="Your name">
+    <!-- Sensitive fields are never captured by default -->
+    <input type="password" name="password" placeholder="Password">
+    <button type="submit">Send</button>
+  </form>
+
+  <script type="module">
+    import { createBrowserTracker } from '../../dist/browser.js';
+
+    const { tracker } = createBrowserTracker({
+      config: {
+        appName: 'frontend-spa',
+        environment: 'production',
+      },
+      interactionOptions: {
+        trackClicks: true,
+        trackForms: true,
+      },
+    });
+
+    await tracker.start();
+    console.log('TrackFlow Browser SDK active');
+
+    document.getElementById('btn-error').addEventListener('click', () => {
+      throw new Error('Simulated UI error');
+    });
+  </script>
+</body>
+</html>
