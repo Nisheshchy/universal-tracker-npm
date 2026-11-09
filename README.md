@@ -2,7 +2,7 @@
 
 > **Universal Application Tracking npm Package** — Monitor changes, activities, performance, errors, and system events through a unified event-processing architecture.
 
-[![npm version](https://img.shields.io/badge/npm-v1.0.0-blue.svg)](https://www.npmjs.com/package/trackflow)
+[![npm version](https://img.shields.io/badge/npm-v1.0.0-blue.svg)](https://www.npmjs.com/package/@nishesh/trackflow)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 [![Vitest](https://img.shields.io/badge/tested%20with-vitest-yellow.svg)](https://vitest.dev/)
@@ -29,14 +29,14 @@ TrackFlow is an actual npm package built with TypeScript, offering dual ESM and 
 - **🗃️ Offline Buffering & Resilient Delivery** — Automatic retry with exponential backoff and jitter, offline buffer fallback on storage outage, and poison-pill dead-letter protection.
 - **🔒 Privacy, Redaction & Security Engine** — Pattern-based email, phone, and credit card masking, ignored properties stripping, payload size DOS limits, circular-safe serialization (`safeSerialize`), and data retention auto-cleanup.
 - **🔌 Advanced Plugin Architecture** — Plugin dependencies, error-isolated lifecycle hooks (`beforeProcess`, `afterProcess`, `beforeFlush`, `onError`), custom background collectors, and storage adapter injection.
-- **🚀 Dual Runtime Integrations** — Specialized entry points for Node.js (`trackflow/node`), browsers (`trackflow/browser`), and Express.js (`trackflow/express`).
+- **🚀 Dual Runtime Integrations** — Specialized entry points for Node.js (`@nishesh/trackflow/node`), browsers (`@nishesh/trackflow/browser`), and Express.js (`@nishesh/trackflow/express`).
 
 ---
 
 ## 📦 Installation
 
 ```bash
-npm install trackflow
+npm install @nishesh/trackflow
 ```
 
 ### Optional Dependencies
@@ -62,7 +62,7 @@ npm install trackflow
 ## 🚀 Quick Start
 
 ```typescript
-import { createTracker } from 'trackflow';
+import { createTracker } from '@nishesh/trackflow';
 
 // 1. Initialize tracker
 const tracker = createTracker({
@@ -114,7 +114,7 @@ await tracker.stop();
 ## ⚙️ Configuration Reference
 
 ```typescript
-import { createTracker, type TrackerConfig } from 'trackflow';
+import { createTracker, type TrackerConfig } from '@nishesh/trackflow';
 
 const config: Partial<TrackerConfig> = {
   // Application identifier (required)
@@ -300,12 +300,12 @@ for (const group of groups) {
 
 ## 🌐 Specialized Runtimes
 
-### Node.js Integration (`trackflow/node`)
+### Node.js Integration (`@nishesh/trackflow/node`)
 
 Provides automatic global exception catching (`uncaughtException`, `unhandledRejection`), periodic CPU/memory monitoring, and graceful process shutdown.
 
 ```typescript
-import { createNodeTracker } from 'trackflow/node';
+import { createNodeTracker } from '@nishesh/trackflow/node';
 
 const { tracker, nodeCollector } = createNodeTracker({
   config: {
@@ -324,12 +324,12 @@ await tracker.start();
 
 ---
 
-### Browser Integration (`trackflow/browser`)
+### Browser Integration (`@nishesh/trackflow/browser`)
 
 Provides automated browser error listeners (`window.onerror`, `unhandledrejection`), page navigation performance metrics, and UI interaction tracking.
 
 ```typescript
-import { createBrowserTracker } from 'trackflow/browser';
+import { createBrowserTracker } from '@nishesh/trackflow/browser';
 
 const { tracker } = createBrowserTracker({
   config: {
@@ -347,14 +347,14 @@ await tracker.start();
 
 ---
 
-### Express.js Integration (`trackflow/express`)
+### Express.js Integration (`@nishesh/trackflow/express`)
 
 Tracks incoming HTTP request durations, status codes, correlation IDs, and unhandled route exceptions without altering error responses.
 
 ```typescript
 import express from 'express';
-import { createTracker } from 'trackflow';
-import { trackflowMiddleware, trackflowErrorMiddleware } from 'trackflow/express';
+import { createTracker } from '@nishesh/trackflow';
+import { trackflowMiddleware, trackflowErrorMiddleware } from '@nishesh/trackflow/express';
 
 const app = express();
 const tracker = createTracker({ appName: 'express-api' });
@@ -383,7 +383,7 @@ TrackFlow supports pluggable storage via `StorageAdapter`:
 3. **Custom Adapters** — Implement `StorageAdapter` for databases (PostgreSQL, MongoDB, SQLite):
 
 ```typescript
-import type { StorageAdapter, TrackerEvent, EventFilter } from 'trackflow';
+import type { StorageAdapter, TrackerEvent, EventFilter } from '@nishesh/trackflow';
 
 export class MongoStorage implements StorageAdapter {
   async initialize(): Promise<void> { /* connect */ }
@@ -400,7 +400,7 @@ export class MongoStorage implements StorageAdapter {
 ## 🔌 Custom Plugins
 
 ```typescript
-import type { TrackFlowPlugin, PluginContext } from 'trackflow';
+import type { TrackFlowPlugin, PluginContext } from '@nishesh/trackflow';
 
 const myPlugin: TrackFlowPlugin = {
   name: 'audit-log-plugin',

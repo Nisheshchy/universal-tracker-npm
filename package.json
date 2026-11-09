@@ -1,7 +1,10 @@
 {
-  "name": "trackflow",
+  "name": "@nishesh/trackflow",
   "version": "1.0.0",
   "description": "Universal application tracking SDK — monitor changes, activities, performance, errors, and system events through a unified event-processing architecture.",
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "Nishesh Chaudhary",
   "license": "MIT",
   "type": "module",
