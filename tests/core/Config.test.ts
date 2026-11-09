@@ -79,3 +79,4 @@ describe('Core: Config System', () => {
     expect(errors).toContain('queue.dropPolicy must be "oldest" or "newest"');
   });
 });
+

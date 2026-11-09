@@ -99,3 +99,4 @@ describe('Core: EventQueue', () => {
     expect(queue.size()).toBe(0);
   });
 });
+

@@ -30,3 +30,4 @@ describe('Core: Public createTracker() API', () => {
     }).toThrow('Invalid TrackFlow configuration: appName must be a non-empty string');
   });
 });
+

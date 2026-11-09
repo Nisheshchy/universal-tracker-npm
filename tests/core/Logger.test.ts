@@ -40,3 +40,4 @@ describe('Core: Logger', () => {
     expect(logger.getLevel()).toBe('debug');
   });
 });
+

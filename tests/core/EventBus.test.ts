@@ -65,3 +65,4 @@ describe('Core: EventBus', () => {
     expect(successfulHandler).toHaveBeenCalled();
   });
 });
+

@@ -120,3 +120,4 @@ describe('Core: EventProcessor', () => {
     expect(storedEvent?.source).toBe('custom-processor-injected');
   });
 });
+

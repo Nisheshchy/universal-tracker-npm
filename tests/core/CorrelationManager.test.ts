@@ -35,3 +35,4 @@ describe('Core: CorrelationManager', () => {
     expect(cm.getSessionId()).toBeUndefined();
   });
 });
+
