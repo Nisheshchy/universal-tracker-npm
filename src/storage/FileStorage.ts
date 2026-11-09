@@ -1,15 +1,19 @@
 import { mkdir, appendFile, readFile, writeFile, rename, stat } from 'fs/promises';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import { fdatasync, openSync, closeSync } from 'fs';
 import type { TrackerEvent, EventFilter, StorageAdapter } from '../types/index.js';
 
 /** Configuration options for {@link FileStorage}. */
 export interface FileStorageOptions {
-  /** When `true`, each JSON line is pretty-printed (one object per logical line is still maintained). */
+  /** Target storage directory. When provided with fileName, constructs filePath. */
+  storageDir?: string;
+  /** Storage file name (defaults to 'trackflow-events.ndjson'). */
+  fileName?: string;
+  /** When `true`, each JSON line is pretty-printed. */
   pretty?: boolean;
   /**
    * Maximum file size in bytes before automatic rotation.
-   * Defaults to 10 MB.  Set to `0` or `Infinity` to disable rotation.
+   * Defaults to 10 MB. Set to `0` or `Infinity` to disable rotation.
    */
   maxFileSize?: number;
 }
@@ -19,7 +23,7 @@ const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 /**
  * File-based storage adapter (Node.js only).
  *
- * Events are persisted as **newline-delimited JSON** (NDJSON).  When the file
+ * Events are persisted as **newline-delimited JSON** (NDJSON). When the file
  * exceeds `maxFileSize` bytes the current file is renamed to `<name>.backup`
  * and a fresh file is started.
  */
@@ -28,10 +32,18 @@ export class FileStorage implements StorageAdapter {
   private readonly pretty: boolean;
   private readonly maxFileSize: number;
 
-  constructor(filePath: string, options: FileStorageOptions = {}) {
-    this.filePath = filePath;
-    this.pretty = options.pretty ?? false;
-    this.maxFileSize = options.maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
+  constructor(filePathOrOptions: string | FileStorageOptions = './trackflow-events.ndjson', options: FileStorageOptions = {}) {
+    if (typeof filePathOrOptions === 'string') {
+      this.filePath = filePathOrOptions;
+      this.pretty = options.pretty ?? false;
+      this.maxFileSize = options.maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
+    } else {
+      const dir = filePathOrOptions.storageDir ?? '.';
+      const name = filePathOrOptions.fileName ?? 'trackflow-events.ndjson';
+      this.filePath = join(dir, name);
+      this.pretty = filePathOrOptions.pretty ?? false;
+      this.maxFileSize = filePathOrOptions.maxFileSize ?? DEFAULT_MAX_FILE_SIZE;
+    }
   }
 
   /* ------------------------------------------------------------------ */

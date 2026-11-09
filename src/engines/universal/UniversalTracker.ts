@@ -15,12 +15,26 @@ import { PluginManager } from '../../plugins/PluginManager.js';
 import type { TrackFlowPlugin } from '../../plugins/PluginInterface.js';
 import { MemoryStorage } from '../../storage/MemoryStorage.js';
 import { FileStorage } from '../../storage/FileStorage.js';
+import { validateStorageAdapter } from '../../storage/StorageAdapter.js';
 import { JSONExporter } from '../../exporters/JSONExporter.js';
 
 import { ChangeTracker } from '../change/ChangeTracker.js';
 import { ActivityTracker } from '../activity/ActivityTracker.js';
 import { PerformanceTracker } from '../performance/PerformanceTracker.js';
 import { ErrorTracker } from '../error/ErrorTracker.js';
+
+export interface ExportOptions {
+  format?: 'json';
+  type?: TrackerEvent['type'];
+  userId?: string;
+  source?: string;
+  startTime?: string;
+  endTime?: string;
+  limit?: number;
+  offset?: number;
+  pretty?: boolean;
+  includeMetadata?: boolean;
+}
 
 export interface TrackerStatus {
   readonly state: LifecycleState;
@@ -63,6 +77,10 @@ export class UniversalTracker {
 
     // Resolve storage adapter
     if (customStorage) {
+      const missing = validateStorageAdapter(customStorage);
+      if (missing.length > 0) {
+        throw new Error(`Invalid custom StorageAdapter: ${missing.join(', ')}`);
+      }
       this.storage = customStorage;
     } else if (this.config.storage?.type === 'file') {
       const filePath =
@@ -217,14 +235,33 @@ export class UniversalTracker {
   }
 
   /**
-   * Export stored events in JSON format.
+   * Export stored events filtered by type, date range, user ID, etc.
    */
-  async export(format: 'json' = 'json'): Promise<string> {
-    const events = await this.query({ limit: 10_000 });
+  async export(formatOrOptions: 'json' | ExportOptions = 'json'): Promise<string> {
+    const options: ExportOptions =
+      typeof formatOrOptions === 'string' ? { format: formatOrOptions } : formatOrOptions;
+
+    const filters: EventFilter = {
+      type: options.type,
+      userId: options.userId,
+      source: options.source,
+      startTime: options.startTime,
+      endTime: options.endTime,
+      limit: options.limit ?? 10_000,
+      offset: options.offset,
+    };
+
+    const events = await this.query(filters);
+    const format = options.format ?? 'json';
+
     if (format === 'json') {
-      const exporter = new JSONExporter();
+      const exporter = new JSONExporter({
+        pretty: options.pretty ?? true,
+        includeMetadata: options.includeMetadata ?? false,
+      });
       return exporter.export([...events]);
     }
+
     throw new Error(`Unsupported export format: ${format}`);
   }
 

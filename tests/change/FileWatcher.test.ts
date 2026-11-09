@@ -43,3 +43,4 @@ describe('Change Tracker: FileWatcher', () => {
     await fileWatcher.unwatch(testFile);
   });
 });
+

@@ -3,6 +3,7 @@ export {
   UniversalTracker,
   createTracker,
   type TrackerStatus,
+  type ExportOptions,
 } from './engines/universal/UniversalTracker.js';
 
 // Core Subsystems
@@ -62,6 +63,7 @@ export {
   SqliteStorage,
   PostgresStorage,
   MongoStorage,
+  validateStorageAdapter,
   type FileStorageOptions,
   type SqliteStorageOptions,
   type SqliteDatabaseLike,

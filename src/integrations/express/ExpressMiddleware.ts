@@ -27,7 +27,18 @@ export interface ExpressMiddlewareOptions {
   readonly recordActivity?: boolean;
   readonly captureErrors?: boolean;
   readonly headerName?: string;
+  readonly excludeRoutes?: ReadonlyArray<string | RegExp>;
+  readonly captureHeaders?: boolean;
+  readonly redactHeaders?: ReadonlyArray<string>;
 }
+
+const DEFAULT_SENSITIVE_HEADERS = new Set([
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'proxy-authorization',
+  'x-api-key',
+]);
 
 /**
  * Express HTTP request tracking middleware.
@@ -39,8 +50,29 @@ export function trackflowMiddleware(
   const headerName = (options?.headerName ?? 'x-correlation-id').toLowerCase();
   const recordPerformance = options?.recordPerformance ?? true;
   const recordActivity = options?.recordActivity ?? true;
+  const excludeRoutes = options?.excludeRoutes ?? [];
+  const captureHeaders = options?.captureHeaders ?? false;
+  const sensitiveHeaders = new Set([
+    ...DEFAULT_SENSITIVE_HEADERS,
+    ...(options?.redactHeaders?.map((h) => h.toLowerCase()) ?? []),
+  ]);
 
   return function (req: RequestLike, res: ResponseLike, next: NextFunctionLike): void {
+    const routePath = req.route?.path || req.path || req.url || 'unknown';
+
+    // Check route exclusions
+    const isExcluded = excludeRoutes.some((pattern) => {
+      if (typeof pattern === 'string') {
+        return routePath === pattern || routePath.startsWith(pattern);
+      }
+      return pattern.test(routePath);
+    });
+
+    if (isExcluded) {
+      next();
+      return;
+    }
+
     const correlationId =
       (req.headers?.[headerName] as string) || generateCorrelationId();
 
@@ -49,11 +81,21 @@ export function trackflowMiddleware(
     }
 
     const startTime = Date.now();
-    const routePath = req.route?.path || req.path || req.url || 'unknown';
     const method = req.method || 'GET';
     const operation = `${method} ${routePath}`;
-
     const userId = req.user?.id || req.userId;
+
+    let sanitizedHeaders: Record<string, unknown> | undefined;
+    if (captureHeaders && req.headers) {
+      sanitizedHeaders = {};
+      for (const [key, val] of Object.entries(req.headers)) {
+        if (sensitiveHeaders.has(key.toLowerCase())) {
+          sanitizedHeaders[key] = '[REDACTED]';
+        } else {
+          sanitizedHeaders[key] = val;
+        }
+      }
+    }
 
     if (recordActivity) {
       tracker.activities.track('http.request', {
@@ -63,6 +105,7 @@ export function trackflowMiddleware(
           method,
           path: routePath,
           correlationId,
+          ...(sanitizedHeaders ? { headers: sanitizedHeaders } : {}),
         },
       });
     }

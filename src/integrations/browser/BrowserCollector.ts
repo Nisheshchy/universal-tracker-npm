@@ -4,6 +4,7 @@ export interface BrowserCollectorOptions {
   readonly captureErrors?: boolean;
   readonly captureUnhandledRejections?: boolean;
   readonly capturePagePerformance?: boolean;
+  readonly capturePageLifecycle?: boolean;
 }
 
 export class BrowserCollector {
@@ -11,6 +12,8 @@ export class BrowserCollector {
   private readonly options: BrowserCollectorOptions;
   private errorHandler?: (event: ErrorEvent) => void;
   private rejectionHandler?: (event: PromiseRejectionEvent) => void;
+  private visibilityHandler?: () => void;
+  private pagehideHandler?: () => void;
   private installed = false;
 
   constructor(tracker: UniversalTracker, options?: BrowserCollectorOptions) {
@@ -19,6 +22,7 @@ export class BrowserCollector {
       captureErrors: options?.captureErrors ?? true,
       captureUnhandledRejections: options?.captureUnhandledRejections ?? true,
       capturePagePerformance: options?.capturePagePerformance ?? true,
+      capturePageLifecycle: options?.capturePageLifecycle ?? true,
     };
   }
 
@@ -65,6 +69,30 @@ export class BrowserCollector {
     // 3. Navigation / Page Load performance metrics
     if (this.options.capturePagePerformance) {
       this.captureNavigationMetrics();
+    }
+
+    // 4. Page Lifecycle events (visibilitychange, pagehide)
+    if (this.options.capturePageLifecycle && typeof document !== 'undefined') {
+      this.visibilityHandler = () => {
+        this.tracker.activities.track('page.visibility', {
+          category: 'lifecycle',
+          metadata: {
+            visibilityState: document.visibilityState,
+            url: window.location.href,
+          },
+        });
+      };
+      document.addEventListener('visibilitychange', this.visibilityHandler);
+
+      this.pagehideHandler = () => {
+        this.tracker.activities.track('page.hide', {
+          category: 'lifecycle',
+          metadata: { url: window.location.href },
+        });
+        // Flush before unload/hide
+        void this.tracker.flush();
+      };
+      window.addEventListener('pagehide', this.pagehideHandler);
     }
 
     this.tracker.logger.info('BrowserCollector installed');
@@ -125,6 +153,16 @@ export class BrowserCollector {
     if (this.rejectionHandler) {
       window.removeEventListener('unhandledrejection', this.rejectionHandler);
       this.rejectionHandler = undefined;
+    }
+
+    if (this.visibilityHandler && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = undefined;
+    }
+
+    if (this.pagehideHandler) {
+      window.removeEventListener('pagehide', this.pagehideHandler);
+      this.pagehideHandler = undefined;
     }
 
     this.installed = false;
